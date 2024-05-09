@@ -29,6 +29,7 @@ download the needed packages (main dependency lies with pandas being at least ve
 ```
 conda activate your_env
 conda install pandas,matplotlib,seaborn,scipy,numpy
+pip install ipynb
 ```
 Once you have needed packages proceed with opening the files
 
