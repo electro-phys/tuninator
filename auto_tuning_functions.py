@@ -251,7 +251,25 @@ def plot_evoke_status_crude(evoked_df):
             plt.show()
 
     return current_df
-            
+
+def calc_dprime(evoked_ls,nonevoked_ls):
+
+    #print(evoked_ls)
+
+    #print(nonevoked_ls)
+
+    mean_evoked = np.mean(evoked_ls)
+    mean_nonevoked = np.mean(nonevoked_ls)
+
+    sd_evoked = np.std(evoked_ls,ddof=1)
+    sd_non_evoked = np.std(nonevoked_ls,ddof =1)
+
+    avg_sd = (sd_evoked+sd_non_evoked)/2
+
+    dprime = (mean_evoked-mean_nonevoked)/avg_sd
+
+
+    return dprime
 
 def make_dB_df(evoked_df):
     plot_df = pd.DataFrame(columns = ['latency','abs_peak_fr','rel_peak_fr','resp_duration','first_bin','last_bin','smoothed_data','spks_10_40ms','file','channel','genotype'])
@@ -336,26 +354,24 @@ def get_thresh(current_dbx1_array,db_ls,sanity):
 
     #thresh = 0.2*np.max(y)
     maxi=np.max(smoothed_y)
-    addi = 0.15*maxi
+    addi = 0.2*maxi
     thresh_y = np.min(smoothed_y)+addi
-    print(maxi,thresh_y)
+    #print(maxi,thresh_y)
 
     thresh_rounded = round(thresh_y, 0)# round to nearestwhole number both thresh and smoothed Y
     smooth_rounded = np.round(smoothed_y, 0)
     #print(thresh_rounded,smooth_rounded)
 
 
+
      
     int_ind = np.where(smooth_rounded == thresh_rounded) # if there is an equal value then we are good
     
-    print(int_ind)
 
-
-
-    
     #print(int_ind)
     try:
         thresh_ind = int_ind[0][0] # need to get the corresponding x value intensity
+        
         #print('Not Empty')
     except:
         # if no equal value need to find the closest one to get the intensity index
@@ -364,13 +380,14 @@ def get_thresh(current_dbx1_array,db_ls,sanity):
         thresh_ind = np.where(abs(thresh_diff_array) == smallest_diff)
         #print('It was empty: ',smallest_diff,thresh_diff_array,thresh_ind)
         #print(thresh_ind[0][0])
+        
         thresh_ind = thresh_ind[0][0]
     
-
+    
 
         # add to get thresh for sanity plots
     thresh_db = db_ls[thresh_ind]
-
+    '''
     if thresh_db == 0:
         # sometimes end up with 0 threshold due to the smoothing
         try:
@@ -379,6 +396,7 @@ def get_thresh(current_dbx1_array,db_ls,sanity):
         except:
             thresh_ind = thresh_ind[1][0]
             thresh_db = db_ls[thresh_ind]
+    '''
 
 
     if sanity == 'yes':
@@ -439,7 +457,6 @@ def add_thresh_col(dB_df,db_ls,sanity):
 
 
 
-
 def make_freq_df(evoked_df,freq_ls):
     cf_df = pd.DataFrame(columns = ['file','channel','genotype'])
     for i in evoked_df['file'].unique(): # need ti group by file and by channel
@@ -489,24 +506,7 @@ def make_freq_df(evoked_df,freq_ls):
     return cf_df
 
 
-def calc_dprime(evoked_ls,nonevoked_ls):
 
-    #print(evoked_ls)
-
-    #print(nonevoked_ls)
-
-    mean_evoked = np.mean(evoked_ls)
-    mean_nonevoked = np.mean(nonevoked_ls)
-
-    sd_evoked = np.std(evoked_ls,ddof=1)
-    sd_non_evoked = np.std(nonevoked_ls,ddof =1)
-
-    avg_sd = (sd_evoked+sd_non_evoked)/2
-
-    dprime = (mean_evoked-mean_nonevoked)/avg_sd
-
-
-    return dprime
 
 def get_dprime(evoked_df,cf_df,thresh_df,db_ls,freq_ls):
     # need to loop through each unit
@@ -634,6 +634,80 @@ def get_dprime(evoked_df,cf_df,thresh_df,db_ls,freq_ls):
                                     'genotype' : current_geno}, ignore_index=True)
 
     return dprime_df
+
+# other idea is to generate an I/O function for each frequency to get threshold on a per column basis
+# then take any cells above that threshold as evoked per column
+# this is becuase the standard sound_evoked check leaves in too much noise
+
+
+def savgol_dprime(evoked_df,db_ls,sanity):
+    plot_df = pd.DataFrame(columns = ['dprime','file','channel','genotype'])
+
+    for i in evoked_df['file'].unique(): # need ti group by file and by channel
+        current_file = evoked_df.loc[evoked_df['file'] == i]
+        for j in evoked_df['channel'].unique():
+            test = current_file.loc[current_file['channel'] == j]
+            current_geno = test['Genotype'][0] # grab the current genotype
+            #print(current_geno)
+            
+            if isinstance(current_geno, str):
+                current_geno = current_geno
+            else:
+                current_geno = 'WT'
+            
+            non_evoked_ls = [] # clear out the firing list
+            yes_evoked_ls = []
+
+
+
+            current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]] # need to get out the list values
+            for col in current_df.columns:
+                current_io = current_df[col]
+                
+                current_io = [sublist[7] for sublist in current_io]
+
+                print('File:',i,'Unit:',j,'Freq:',col)
+                
+                print('Current IO',current_io)
+
+
+                current_threshold = get_thresh(current_io,db_ls,sanity) # get threshold for current IO
+                print('Current Threshold',current_threshold)
+                #thresh_ls = range(len(current_io)) # makes a list 0-X for x intensities
+                print(db_ls)
+                #thresh_index = np.where(db_ls == current_threshold) # get index value of current threshold
+                thresh_index = db_ls.index(current_threshold)
+                print(thresh_index) 
+                non_evoked_fr = current_io[:thresh_index] # separate the firing values by evoked and non_evoked
+                print(non_evoked_fr)
+                yes_evoked_fr = current_io[thresh_index+1:]# save into big list of evoked and non_evoked
+                print(yes_evoked_fr)
+
+                if thresh_index > 0:                  
+                    for item in yes_evoked_fr:
+                                yes_evoked_ls.append(item)
+                    for item in non_evoked_fr:
+                                non_evoked_ls.append(item)
+
+                
+                
+
+            dprime = calc_dprime(yes_evoked_ls,non_evoked_ls) # get dprime after done with all the columns for the unit
+
+            
+
+
+
+
+
+
+            plot_df = plot_df._append({'dprime':dprime,
+                                                'file': i,
+                                                'channel':j,
+                                                'genotype' : current_geno}, ignore_index=True)
+    return plot_df
+
+
 
 def get_bandwidth():
 
