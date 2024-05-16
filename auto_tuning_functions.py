@@ -430,6 +430,11 @@ def make_freq_df(evoked_df,freq_ls):
 
 
 def calc_dprime(evoked_ls,nonevoked_ls):
+
+    #print(evoked_ls)
+
+    #print(nonevoked_ls)
+
     mean_evoked = np.mean(evoked_ls)
     mean_nonevoked = np.mean(nonevoked_ls)
 
@@ -443,7 +448,7 @@ def calc_dprime(evoked_ls,nonevoked_ls):
 
     return dprime
 
-def get_dprime(evoked_df,cf_df,thresh_df,db_ls):
+def get_dprime(evoked_df,cf_df,thresh_df,db_ls,freq_ls):
     # need to loop through each unit
     # need top get the threshold and BF from respective dataframes
     # the cells in the rows above threshold are all considered non-evoked
@@ -457,8 +462,14 @@ def get_dprime(evoked_df,cf_df,thresh_df,db_ls):
         for j in evoked_df['channel'].unique():
             test = current_file.loc[current_file['channel'] == j]
             current_geno = test['Genotype'][0] # grab the current genotype
-            current_bf = cf_df.loc[(cf_df['file'] == i) & (cf_df['channel'] == j)]
+            #current_bf = cf_df.loc[(cf_df['file'] == i) & (cf_df['channel'] == j)]
+            #current_bf = current_bf['CF']
             current_thresh = thresh_df.loc[(thresh_df['file'] == i) & (thresh_df['channel'] == j)]
+            current_thresh = current_thresh['threshold']
+            #print(current_thresh)
+            current_thresh = current_thresh.iloc[0]
+            #print(current_thresh)
+
             
             if isinstance(current_geno, str):
                 current_geno = current_geno
@@ -468,39 +479,72 @@ def get_dprime(evoked_df,cf_df,thresh_df,db_ls):
             #current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]]
             #print(current_df)
 
-            sum_all_freq = {}
+            test = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]]
+
             non_evoked_ls = []
             yes_evoked_ls = []
             for index, row in test.iterrows():
-                for col in test.columns():
+                for col in test.columns:
                     current_row = row
 
+
                     current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]].apply(lambda x: list(x)[index])
-                    below = current_df.shift(-1) # shifts df up 1 row so we can check if our evoked cell is contiguos
-                    below_left = below.shift(-1,axis=1) # shifts up and over to the left
-                    below_right = below.shift(1,axis=1) # shifts up and over to the right
+
 
                     # the index will loop from 0 to 9 (which simply corresponds to each intensity)
                     current_db = db_ls[index]
+                    #print(current_db)
 
                     if current_db < current_thresh:
                         # count every cell as non_evoked
+                        #print(current_df)
+
                         no_evoke_bl_peak_fr = current_df.apply(lambda x: list(x)[4]) # just save them all, simple stuff
-                        # save the bl corrected firing into a dataframe/ dictionary
-                        non_evoked_ls = non_evoked_ls.append(no_evoke_bl_peak_fr)
-                    if current_db > current_thresh:
+                        no_evoke_bl_peak_fr = no_evoke_bl_peak_fr.tolist()
+
+                        for item in no_evoke_bl_peak_fr:
+                            # save the bl corrected firing into a dataframe/ dictionary
+                            non_evoked_ls.append(item)
+
+
+                    if (current_db > current_thresh) and (current_db != np.max(db_ls)): # if above threshold and less than max intensity
+
+                        #col = int(col)
+
 
                         current_cell = test.at[index,col]
+                        current_below = test.at[(index+1),col]
 
+                        max_freq_col = len(freq_ls)-1
+                        
 
-                        if current_cell[0] and (below[0] or below_left[0] or below_right[0]): # if current cell and one of its higher intensity neighbors are True evoked then add it to the evoked list
-                            yes_evoke_bl_peak_fr = current_cell[4]
-                            yes_evoked_ls = yes_evoked_ls.append(yes_evoke_bl_peak_fr)
+                        if col == 0: # if there is no column on the left then just reuse the center below
+                            current_below_left = current_below
+                        else:    
+                            current_below_left = test.at[(index+1),(col-1)]
 
+                        if col == max_freq_col: # if there is no column on the right then just reuse the center below
+                            current_below_right = current_below
                         else:
-                            no_evoke_bl_peak_fr = current_cell[4]
-                            non_evoked_ls = no_evoke_bl_peak_fr
-                            # if not add current cell to non-evoked list
+                            current_below_right = test.at[(index+1),(col+1)]
+
+                        #print(i,j)
+
+
+
+                        try:
+                            if current_cell[0] and (current_below[0] or current_below_left[0] or current_below_right[0]): # if current cell and one of its higher intensity neighbors are True evoked then add it to the evoked list
+                                yes_evoke_bl_peak_fr = current_cell[4]
+                                yes_evoked_ls.append(yes_evoke_bl_peak_fr)
+
+                            else:
+                                no_evoke_bl_peak_fr = current_cell[4]
+                                non_evoked_ls.append(no_evoke_bl_peak_fr)
+                                # if not add current cell to non-evoked list
+
+                        except:
+                            print('Problem with this unit/file')
+                            
 
 
                     if current_db == np.max(db_ls):
@@ -508,7 +552,10 @@ def get_dprime(evoked_df,cf_df,thresh_df,db_ls):
                         true_columns = current_df.columns[current_df.iloc[0] == True]
                         current_df = current_df[true_columns]
                         yes_evoke_bl_peak_fr = current_df.apply(lambda x: list(x)[4])
-                        yes_evoked_ls = yes_evoked_ls.append(yes_evoke_bl_peak_fr)
+                        yes_evoke_bl_peak_fr = yes_evoke_bl_peak_fr.tolist()
+
+                        for item in yes_evoke_bl_peak_fr:
+                            yes_evoked_ls.append(item)
 
                         
                         
@@ -516,18 +563,15 @@ def get_dprime(evoked_df,cf_df,thresh_df,db_ls):
                         # at the max intensity we can't check for contigiuos bins at a higher intensity
                         # so just take all cells that are evoked without checking
 
-                    dprime = calc_dprime(yes_evoked_ls,non_evoked_ls)
-                    
 
+            #print(non_evoked_ls)    
+            dprime = calc_dprime(yes_evoked_ls,non_evoked_ls)    
 
-                
-                
-
-                    # make a threshold dataframe columns being threshold, file, channel, genotype
-                dprime_df = dprime_df._append({'dprime': dprime,
-                                        'file': i,
-                                        'channel':j,
-                                        'genotype' : current_geno}, ignore_index=True)
+                # make a threshold dataframe columns being threshold, file, channel, genotype
+            dprime_df = dprime_df._append({'dprime': dprime,
+                                    'file': i,
+                                    'channel':j,
+                                    'genotype' : current_geno}, ignore_index=True)
 
     return dprime_df
 
