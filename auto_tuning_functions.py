@@ -37,7 +37,7 @@ print(pd.__version__)
 # email: davidwg3@illinois.edu                                                                                       
                                                                                        
                                                                                     
-def is_significantly_activated(current_cell):
+def is_significantly_activated(current_cell,sanity,filename):
     #print(current_cell)
     current_cell = np.concatenate(current_cell).ravel()#.tolist()
 
@@ -169,21 +169,22 @@ def is_significantly_activated(current_cell):
     #print('Response Duration: ', duration_rounded)
     
     # sanity plots if needed
-    #plt.figure(figsize=(8, 6))
-    #plt.hist(current_cell, bins=bin_edges, color='blue', edgecolor='black', alpha=0.7)
-    #plt.axvline(x=peak_latency, color='red', linestyle='--', label=f'Peak Value: {peak_latency:.2f}')
-    #plt.axhline(y=prestim_sd4,color='black',linestyle='--')
-    #plt.axvspan(0, 0.1, facecolor='g',alpha=.1,zorder=-100) #new line
-    #plt.title('SD4: ',prestim_sd4)
-    
-    #plt.show()
+    if sanity == 'yes':
+        plt.figure(figsize=(8, 6))
+        plt.hist(current_cell, bins=bin_edges, color='blue', edgecolor='black', alpha=0.7)
+        plt.axvline(x=peak_latency, color='red', linestyle='--', label=f'Peak Value: {peak_latency:.2f}')
+        plt.axhline(y=prestim_sd4,color='black',linestyle='--')
+        plt.axvspan(0, 0.1, facecolor='g',alpha=.1,zorder=-100) #new line
+        plt.title(filename)
+        
+        plt.show()
     
     evoked_ls = [evoked_Status, peak_latency, peak_fr, duration_rounded,bl_peak_fr,first_bin_exceeding_threshold,last_bin,sum_counts]
     
     return evoked_ls
 
 
-def make_evoked_df(current_df,freq_ls,db_ls):
+def make_evoked_df(current_df,freq_ls,db_ls,sanity):
 
     
 
@@ -199,8 +200,8 @@ def make_evoked_df(current_df,freq_ls,db_ls):
                         # not efficient at all, but I don't want to wrestle with replacing by index either
 
 
-    for x in big_df['file'].unique(): # loop over each tuning curve
-        current_file = big_df.loc[big_df['file'] == x]
+    for i in big_df['file'].unique(): # loop over each tuning curve
+        current_file = big_df.loc[big_df['file'] == i]
         
         for chan in current_file['channel'].unique(): 
             test = current_file.loc[current_file['channel'] == chan]
@@ -210,10 +211,10 @@ def make_evoked_df(current_df,freq_ls,db_ls):
             #print(chan,x,current_geno)
             #print(spiking_only_df)
 
-            current_output_df = spiking_only_df.map(lambda x: is_significantly_activated(x))  
+            current_output_df = spiking_only_df.map(lambda x: is_significantly_activated(x,sanity,i))  
             
             #print(current_output_df)
-            current_output_df['file'] = x
+            current_output_df['file'] = i
             current_output_df['channel'] = chan
             current_output_df['Genotype'] = test['Genotype']
             
@@ -369,22 +370,24 @@ def add_thresh_col(dB_df,db_ls):
                                                     'file': i,
                                                     'channel':j,
                                                     'genotype' : current_geno}, ignore_index=True)
+            
+            # add to get thresh for sanity plots
+            #plt.figure(figsize=(5,5))
+            #plt.plot(data, label='Original Data')
+            #plt.plot(smoothed_y,label = 'Smooth')
+            #plt.scatter(inflection_indices, smoothed_y[inflection_indices], color='red', label='Inflection Points')
+            #plt.axhline(y = thresh, color='k', label='Inflection',linestyle='--')
+            #sns.despine()
+            #plt.xlabel('Index')
+            #plt.ylabel('Value')
+            #plt.legend()
+            #plt.title('Smoothing with 5 point filter')
+            #plt.show()
 
     return thresh_df
     
 
-# add to get thresh for sanity plots
-#plt.figure(figsize=(5,5))
-#plt.plot(data, label='Original Data')
-#plt.plot(smoothed_y,label = 'Smooth')
-#plt.scatter(inflection_indices, smoothed_y[inflection_indices], color='red', label='Inflection Points')
-#plt.axhline(y = thresh, color='k', label='Inflection',linestyle='--')
-#sns.despine()
-#plt.xlabel('Index')
-#plt.ylabel('Value')
-#plt.legend()
-#plt.title('Smoothing with 5 point filter')
-#plt.show()
+
 
 
 
