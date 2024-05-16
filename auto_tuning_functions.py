@@ -221,6 +221,36 @@ def make_evoked_df(current_df,freq_ls,db_ls,sanity):
             new_df = pd.concat([new_df,current_output_df],ignore_index=False)
         
     return new_df
+
+def plot_evoke_status_crude(evoked_df):
+
+    for i in evoked_df['file'].unique(): # need ti group by file and by channel
+        current_file = evoked_df.loc[evoked_df['file'] == i]
+        for j in evoked_df['channel'].unique():
+            test = current_file.loc[current_file['channel'] == j]
+            current_geno = test['Genotype'][0] # grab the current genotype
+            #print(current_geno)
+            print(test)
+            
+            if isinstance(current_geno, str):
+                current_geno = current_geno
+            else:
+                current_geno = 'WT'
+            
+            current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]].map(lambda x: x[0]) # get evoked True/False value
+            current_df = current_df.astype(int) # converts true false to 1 0
+
+            fr_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]].map(lambda x: x[4]) # get baseline corrected firing rate
+
+            fig1,ax1 = plt.subplots(2,1,figsize=(5,5))
+            sns.heatmap(current_df,ax=ax1[0])
+            sns.heatmap(fr_df,ax=ax1[1])
+            ID_file = 'File: ' + str(i) +' Unit: ' + str(j)
+            plt.title(ID_file)
+            plt.tight_layout()
+            plt.show()
+
+    return current_df
             
 
 def make_dB_df(evoked_df):
@@ -297,7 +327,7 @@ def make_dB_df(evoked_df):
                                                     'genotype' : current_geno}, ignore_index=True)
     return plot_df           
 
-def get_thresh(current_dbx1_array,db_ls):
+def get_thresh(current_dbx1_array,db_ls,sanity):
 
 # Smooth the line
     
@@ -306,9 +336,9 @@ def get_thresh(current_dbx1_array,db_ls):
 
     #thresh = 0.2*np.max(y)
     maxi=np.max(smoothed_y)
-    addi = 0.1*maxi
+    addi = 0.15*maxi
     thresh_y = np.min(smoothed_y)+addi
-    #print(thresh_y)
+    print(maxi,thresh_y)
 
     thresh_rounded = round(thresh_y, 0)# round to nearestwhole number both thresh and smoothed Y
     smooth_rounded = np.round(smoothed_y, 0)
@@ -317,7 +347,8 @@ def get_thresh(current_dbx1_array,db_ls):
 
      
     int_ind = np.where(smooth_rounded == thresh_rounded) # if there is an equal value then we are good
-        
+    
+    print(int_ind)
 
 
 
@@ -334,14 +365,41 @@ def get_thresh(current_dbx1_array,db_ls):
         #print('It was empty: ',smallest_diff,thresh_diff_array,thresh_ind)
         #print(thresh_ind[0][0])
         thresh_ind = thresh_ind[0][0]
+    
+
+
+        # add to get thresh for sanity plots
+    thresh_db = db_ls[thresh_ind]
+
+    if thresh_db == 0:
+        # sometimes end up with 0 threshold due to the smoothing
+        try:
+            thresh_ind = int_ind[1][0] # so just take the next intercept
+            thresh_db = db_ls[thresh_ind]
+        except:
+            thresh_ind = thresh_ind[1][0]
+            thresh_db = db_ls[thresh_ind]
+
+
+    if sanity == 'yes':
+        plt.figure(figsize=(5,5))
+        plt.plot(current_dbx1_array, label='Original Data')
+        plt.plot(smoothed_y,label = 'Smooth')
+        plt.axhline(y = thresh_y, color='k', label='Inflection',linestyle='--')
+        sns.despine()
+        plt.xlabel('Index')
+        plt.ylabel('Value')
+        plt.legend()
+        plt.title('Smoothing with 5 point filter')
+        plt.show()
 
     
-    thresh_db = db_ls[thresh_ind]
+    
     #print(thresh_db)
 
     return thresh_db
 
-def add_thresh_col(dB_df,db_ls):
+def add_thresh_col(dB_df,db_ls,sanity):
 
     
     thresh_df = pd.DataFrame(columns = ['threshold','file','channel','genotype'])
@@ -363,7 +421,7 @@ def add_thresh_col(dB_df,db_ls):
 
             curr_fr = current_unit['rel_peak_fr'] 
      
-            thresh = get_thresh(curr_fr,intensity)
+            thresh = get_thresh(curr_fr,intensity,sanity)
 
                 # make a threshold dataframe columns being threshold, file, channel, genotype
             thresh_df = thresh_df._append({'threshold': thresh,
@@ -371,18 +429,7 @@ def add_thresh_col(dB_df,db_ls):
                                                     'channel':j,
                                                     'genotype' : current_geno}, ignore_index=True)
             
-            # add to get thresh for sanity plots
-            #plt.figure(figsize=(5,5))
-            #plt.plot(data, label='Original Data')
-            #plt.plot(smoothed_y,label = 'Smooth')
-            #plt.scatter(inflection_indices, smoothed_y[inflection_indices], color='red', label='Inflection Points')
-            #plt.axhline(y = thresh, color='k', label='Inflection',linestyle='--')
-            #sns.despine()
-            #plt.xlabel('Index')
-            #plt.ylabel('Value')
-            #plt.legend()
-            #plt.title('Smoothing with 5 point filter')
-            #plt.show()
+            
 
     return thresh_df
     
