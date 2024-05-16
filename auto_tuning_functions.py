@@ -694,11 +694,6 @@ def savgol_dprime(evoked_df,db_ls,sanity):
 
             dprime = calc_dprime(yes_evoked_ls,non_evoked_ls) # get dprime after done with all the columns for the unit
 
-            
-
-
-
-
 
 
             plot_df = plot_df._append({'dprime':dprime,
