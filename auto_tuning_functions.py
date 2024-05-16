@@ -160,6 +160,12 @@ def is_significantly_activated(current_cell):
         last_bin = max(bins_after_peak)
     
     duration_rounded = round(duration, 8)
+
+    start_bin = np.searchsorted(bin_edges,0.01, side = 'left') # get total spike count from 10 to 40ms (the reason we are doing this is becuase non-evoked cells would not have an evoked portion)
+    end_bin = np.searchsorted(bin_edges,0.04,side='right') # can use this same function but use the last bin and peak latency times for the second argument (np.searchsorted(bin_edges,peak_latency,side='left))
+    sum_counts = hist[start_bin:end_bin].sum()
+    # still need spike count during evoked portion for evoked cells to compare genotypes.
+
     #print('Response Duration: ', duration_rounded)
     
     # sanity plots if needed
@@ -172,7 +178,7 @@ def is_significantly_activated(current_cell):
     
     #plt.show()
     
-    evoked_ls = [evoked_Status, peak_latency, peak_fr, duration_rounded,bl_peak_fr,first_bin_exceeding_threshold,last_bin]
+    evoked_ls = [evoked_Status, peak_latency, peak_fr, duration_rounded,bl_peak_fr,first_bin_exceeding_threshold,last_bin,sum_counts]
     
     return evoked_ls
 
@@ -217,7 +223,7 @@ def make_evoked_df(current_df,freq_ls,db_ls):
             
 
 def make_dB_df(evoked_df):
-    plot_df = pd.DataFrame(columns = ['latency','abs_peak_fr','rel_peak_fr','resp_duration','first_bin','last_bin','smoothed_data','file','channel','genotype'])
+    plot_df = pd.DataFrame(columns = ['latency','abs_peak_fr','rel_peak_fr','resp_duration','first_bin','last_bin','smoothed_data','spks_10_40ms','file','channel','genotype'])
 
     for i in evoked_df['file'].unique(): # need ti group by file and by channel
         current_file = evoked_df.loc[evoked_df['file'] == i]
@@ -274,6 +280,9 @@ def make_dB_df(evoked_df):
                 last_sd4_bin = result_df.apply(lambda x: list(x)[6]) 
                 last_bin = last_sd4_bin.mean()
 
+                spks_10_40ms = result_df.apply(lambda x: list(x)[7]) 
+                spks_10_40ms_mean = spks_10_40ms.mean()
+
 
                 plot_df = plot_df._append({'latency': lat_mean, 'abs_peak_fr': peak_mean,
                                                     'rel_peak_fr':rel_peak_mean,
@@ -281,6 +290,7 @@ def make_dB_df(evoked_df):
                                                     'first_bin':first_bin,
                                                     'last_bin':last_bin,
                                                     'smoothed_data':smoothed_mean,
+                                                    'spks_10_40ms':spks_10_40ms_mean,
                                                     'file': i,
                                                     'channel':j,
                                                     'genotype' : current_geno}, ignore_index=True)
@@ -499,7 +509,7 @@ def get_dprime(evoked_df,cf_df,thresh_df,db_ls,freq_ls):
                         # count every cell as non_evoked
                         #print(current_df)
 
-                        no_evoke_bl_peak_fr = current_df.apply(lambda x: list(x)[4]) # just save them all, simple stuff
+                        no_evoke_bl_peak_fr = current_df.apply(lambda x: list(x)[7]) # just save them all, simple stuff
                         no_evoke_bl_peak_fr = no_evoke_bl_peak_fr.tolist()
 
                         for item in no_evoke_bl_peak_fr:
@@ -534,11 +544,11 @@ def get_dprime(evoked_df,cf_df,thresh_df,db_ls,freq_ls):
 
                         try:
                             if current_cell[0] and (current_below[0] or current_below_left[0] or current_below_right[0]): # if current cell and one of its higher intensity neighbors are True evoked then add it to the evoked list
-                                yes_evoke_bl_peak_fr = current_cell[4]
+                                yes_evoke_bl_peak_fr = current_cell[7]
                                 yes_evoked_ls.append(yes_evoke_bl_peak_fr)
 
                             else:
-                                no_evoke_bl_peak_fr = current_cell[4]
+                                no_evoke_bl_peak_fr = current_cell[7]
                                 non_evoked_ls.append(no_evoke_bl_peak_fr)
                                 # if not add current cell to non-evoked list
 
@@ -551,7 +561,7 @@ def get_dprime(evoked_df,cf_df,thresh_df,db_ls,freq_ls):
 
                         true_columns = current_df.columns[current_df.iloc[0] == True]
                         current_df = current_df[true_columns]
-                        yes_evoke_bl_peak_fr = current_df.apply(lambda x: list(x)[4])
+                        yes_evoke_bl_peak_fr = current_df.apply(lambda x: list(x)[7])
                         yes_evoke_bl_peak_fr = yes_evoke_bl_peak_fr.tolist()
 
                         for item in yes_evoke_bl_peak_fr:
