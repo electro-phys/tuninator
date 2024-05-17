@@ -774,8 +774,19 @@ def calc_octaves(low,high):
 	bandwidth = math.log2(ratio)
 	return bandwidth
 
+def get_qval(cf, bw):
+     # calculates qvalue given characteristic freq index and bandwidth
+      
+	#cf_hz = freq_ls[cf] # convert cf index to cf in khz
+	cf_khz =  cf/1000 # use if in Hz, comment out this line if in kHz
+    
+	qvalue = cf_khz/bw
+     
+    
+	return qvalue
 
-def get_bandwidth(evoked_df,thresh_df,freq_ls,db_ls,sanity):
+
+def get_bandwidth(evoked_df,thresh_df,freq_ls,db_ls,cf_df,sanity):
     # need to use the threshold value to get starting point
     # start at the row above threshold (10 dB in our case)
     # do the same sort of savgol filtering for the frequency curve
@@ -788,7 +799,7 @@ def get_bandwidth(evoked_df,thresh_df,freq_ls,db_ls,sanity):
     # also add another measure of d-prime where we classify a frequency column for a given intesnity as evoked if it crosses a set threshold based on BF max firing
     # so then we can get an intensity dependent d-prime
 
-    plot_df = pd.DataFrame(columns = ['dprime','low_freq','high_freq','BW','db_above_threshold','peaks','file','channel','genotype'])
+    plot_df = pd.DataFrame(columns = ['dprime','low_freq','high_freq','BW','CF','db_above_threshold','peaks','file','channel','genotype'])
 
     for i in evoked_df['file'].unique(): # need ti group by file and by channel
         current_file = evoked_df.loc[evoked_df['file'] == i]
@@ -796,6 +807,14 @@ def get_bandwidth(evoked_df,thresh_df,freq_ls,db_ls,sanity):
             test = current_file.loc[current_file['channel'] == j]
             current_geno = test['Genotype'][0] # grab the current genotype
             #print(current_geno)
+
+
+            cf_row = cf_df.loc[(cf_df['file'] == i) & (cf_df['channel'] == j)]
+            
+            current_cf = cf_row['CF']
+            
+            current_cf = current_cf.values[0]
+            print(current_cf)
             
             if isinstance(current_geno, str):
                 current_geno = current_geno
@@ -811,13 +830,13 @@ def get_bandwidth(evoked_df,thresh_df,freq_ls,db_ls,sanity):
 
                 
                 current_io = current_df.apply(lambda x: list(x)[7]) 
-                print(current_io)
+                #print(current_io)
 
-                print('File:',i,'Unit:',j)
+                #print('File:',i,'Unit:',j)
                 
 
 
-                print(index)
+                #print(index)
 
                 current_edges = get_tuning_edges(current_khzx1_array = current_io,freq_ls = freq_ls,sanity=sanity)
                 
@@ -827,10 +846,10 @@ def get_bandwidth(evoked_df,thresh_df,freq_ls,db_ls,sanity):
                 current_max_Hz = freq_ls[current_max]
                 current_min_Hz = freq_ls[current_min]
 
-                print(current_min_Hz,current_max_Hz)
+                #print(current_min_Hz,current_max_Hz)
 
                 current_bw = calc_octaves(current_min_Hz,current_max_Hz)
-                print(current_bw)
+                #print(current_bw)
 
 
 
@@ -861,10 +880,26 @@ def get_bandwidth(evoked_df,thresh_df,freq_ls,db_ls,sanity):
                 # can take the column values that are over the minimum to be evoked, and others to be not then calculate d-prime at each intensity above threshold
 
 
+                
+                print('CF: ',current_cf,current_bw)
+                
+                #cf = float(cf)
+
+                if current_bw == 0:
+                     low = current_cf
+                     high = current_cf + 1000
+                     current_bw = calc_octaves(low,high)
+                
+                qval = get_qval(cf=current_cf,bw=current_bw)
+                qval = qval/10 # correct for units
+
+
                 plot_df = plot_df._append({'dprime':dprime,
                                         'low_freq':current_min_Hz,
                                         'high_freq':current_max_Hz,
                                         'BW':current_bw,
+                                        'CF':current_cf,
+                                        'Q-value':qval,
                                         'db_above_threshold':relative_intensity,
                                         'actual_dB': current_intensity,
                                         'peaks':current_edges[3],
@@ -876,11 +911,7 @@ def get_bandwidth(evoked_df,thresh_df,freq_ls,db_ls,sanity):
 
 
 
-def get_qval(cf, bw): # calculates qvalue given characteristic freq index and bandwidth
-	#cf_hz = freq_ls[cf] # convert cf index to cf in khz
-	cf_khz =  cf/1000 # use if in Hz, comment out this line if in kHz
-	qvalue = cf_khz/bw
-	return qvalue
+
 
 
 def area_under_curve(evoked_df,freq_ls):
