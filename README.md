@@ -11,6 +11,7 @@ These accessory custom analysis scripts used to analyze the data may be useful f
     - [Response Properties](#main_func)
     - [Thresholds](#thresholds)
     - [Bandwidth](#bw)
+    - [Precision](#prec)
 3. [Usage](#output)
 
 ---
@@ -100,6 +101,17 @@ Calculating d-prime takes everything we have produced so far and, in a way, summ
 
 
 ---
+<a name="prec" />
+
+
+### Precision metric
+
+Placeholder
+
+
+---
+
+
 <a name="output" />
 
 
