@@ -5,7 +5,7 @@
 import pandas as pd
 import numpy as np
 
-
+import math
 
 #plots
 import matplotlib.pyplot as plt
@@ -290,7 +290,7 @@ def make_dB_df(evoked_df):
             
             for index, row in test.iterrows():
                 
-                current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]].apply(lambda x: list(x)[index])# need to get only cells with True
+                current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]].apply(lambda x: list(x)[index]) # need to get only cells with True
                 true_columns = current_df.columns[current_df.iloc[0] == True] # check where columns have a True string
                 #print(true_columns)
                 
@@ -489,6 +489,10 @@ def make_freq_df(evoked_df,freq_ls):
                 current_sum = np.sum(current_cell[4] for current_cell in current_freq) # sum the baseline corrected frs for this column
                 current_freq = freq_ls[series_name]
                 sum_all_freq[current_freq] = current_sum
+
+
+
+
 
 
                 
@@ -704,13 +708,234 @@ def savgol_dprime(evoked_df,db_ls,sanity):
 
 
 
-def get_bandwidth():
 
-    return
+def get_tuning_edges(current_khzx1_array,freq_ls,sanity):
+
+# Smooth the line
+    
+    smoothed_y = savgol_filter(current_khzx1_array, window_length=5, polyorder=3)
 
 
-def get_qvals():
+    #thresh = 0.2*np.max(y)
+    maxi=np.max(smoothed_y)
+    mini = np.min(smoothed_y)
+    addi = 0.5*(maxi-mini)
+    thresh_y = np.min(smoothed_y)+addi
+    #print(maxi,thresh_y)
 
-    return
+
+    diff = smoothed_y - thresh_y
+
+    sign_changes = np.where(np.diff(np.sign(diff)))[0] # find sign of the differences
+
+    peaks = 'one'
+    if len(sign_changes) > 2:
+        peaks = 'multi'
+
+    first_intercept = sign_changes[0]
+    last_intercept = sign_changes[-1]
+
+
+    thresh_khz_low = freq_ls[first_intercept]
+    thresh_khz_high = freq_ls[last_intercept]
+    
+
+    
+
+
+    all_evoked_cols = np.where(smoothed_y > thresh_y)[0]
+
+
+    if sanity == 'yes':
+        plt.figure(figsize=(5,5))
+        plt.plot(current_khzx1_array, label='Original Data')
+        plt.plot(smoothed_y,label = 'Smooth')
+        plt.axhline(y = thresh_y, color='k', label='Inflection',linestyle='--')
+        sns.despine()
+        plt.xlabel('Index')
+        plt.ylabel('Value')
+        plt.legend()
+        plt.title('Smoothing with 5 point filter')
+        plt.show()
+
+    
+    #print(thresh_db)
+
+
+    # use all_evoked_cells for bandwidth calculation for now
+    return thresh_khz_low,thresh_khz_high,all_evoked_cols,peaks
+
+
+
+def calc_octaves(low,high):
+    #low_khz = freq_ls[low] # convert index to freq in khz
+	#high_khz = freq_ls[high]
+	ratio = high/low # leave frequency in Hz if it is already, the q value code will convert it to kHz
+	bandwidth = math.log2(ratio)
+	return bandwidth
+
+
+def get_bandwidth(evoked_df,thresh_df,freq_ls,db_ls,sanity):
+    # need to use the threshold value to get starting point
+    # start at the row above threshold (10 dB in our case)
+    # do the same sort of savgol filtering for the frequency curve
+    # look by eye as to where the edges would be in the tuning curve heatmap and this savgol curve 
+    # use the 20% (maybe more) cutoff to get the edges where each x axis point is a frequency
+    # save upper and lower frequency numbers
+    # calc octaves
+    # save octave number
+
+    # also add another measure of d-prime where we classify a frequency column for a given intesnity as evoked if it crosses a set threshold based on BF max firing
+    # so then we can get an intensity dependent d-prime
+
+    plot_df = pd.DataFrame(columns = ['dprime','low_freq','high_freq','BW','db_above_threshold','peaks','file','channel','genotype'])
+
+    for i in evoked_df['file'].unique(): # need ti group by file and by channel
+        current_file = evoked_df.loc[evoked_df['file'] == i]
+        for j in evoked_df['channel'].unique():
+            test = current_file.loc[current_file['channel'] == j]
+            current_geno = test['Genotype'][0] # grab the current genotype
+            #print(current_geno)
+            
+            if isinstance(current_geno, str):
+                current_geno = current_geno
+            else:
+                current_geno = 'WT'
+
+            current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]] # need to get out the list values
+
+            for index, row in test.iterrows():  
+                non_evoked_ls = [] # need to reset evoked lists because we are getting d-prime for every row
+                yes_evoked_ls = []              
+                current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]].apply(lambda x: list(x)[index])
+
+                
+                current_io = current_df.apply(lambda x: list(x)[7]) 
+                print(current_io)
+
+                print('File:',i,'Unit:',j)
+                
+
+
+                print(index)
+
+                current_edges = get_tuning_edges(current_khzx1_array = current_io,freq_ls = freq_ls,sanity=sanity)
+                
+                current_max = np.max(current_edges[2])
+                current_min = np.min(current_edges[2])
+
+                current_max_Hz = freq_ls[current_max]
+                current_min_Hz = freq_ls[current_min]
+
+                print(current_min_Hz,current_max_Hz)
+
+                current_bw = calc_octaves(current_min_Hz,current_max_Hz)
+                print(current_bw)
+
+
+
+
+                current_threshold = thresh_df.loc[(thresh_df['file'] == i) & (thresh_df['channel'] == j)] # get threshold for current IO
+                current_threshold = current_threshold['threshold']
+                
+                current_intensity = db_ls[index]
+                
+
+                relative_intensity = current_intensity - current_threshold
+     
+                relative_intensity = relative_intensity.values[0]
+                
+
+                
+
+                all_evoked_indexes = current_edges[2] # gives every frequency value above the cutoff
+
+                for a,item in enumerate(current_io): # if a frequency column for this intensity corresponds to an evoked index add to evoked list
+                    if a in all_evoked_indexes:
+                        yes_evoked_ls.append(item)
+                    else:
+                        non_evoked_ls.append(item)
+   
+
+                dprime = calc_dprime(yes_evoked_ls,non_evoked_ls) # get dprime after done with all the columns for the unit
+                # can take the column values that are over the minimum to be evoked, and others to be not then calculate d-prime at each intensity above threshold
+
+
+                plot_df = plot_df._append({'dprime':dprime,
+                                        'low_freq':current_min_Hz,
+                                        'high_freq':current_max_Hz,
+                                        'BW':current_bw,
+                                        'db_above_threshold':relative_intensity,
+                                        'actual_dB': current_intensity,
+                                        'peaks':current_edges[3],
+                                        'file': i,
+                                        'channel':j,
+                                        'genotype' : current_geno}, ignore_index=True)
+
+    return plot_df
+
+
+
+def get_qval(cf, bw): # calculates qvalue given characteristic freq index and bandwidth
+	#cf_hz = freq_ls[cf] # convert cf index to cf in khz
+	cf_khz =  cf/1000 # use if in Hz, comment out this line if in kHz
+	qvalue = cf_khz/bw
+	return qvalue
+
+
+def area_under_curve(evoked_df,freq_ls):
+    cf_df = pd.DataFrame(columns = ['file','channel','genotype'])
+    for i in evoked_df['file'].unique(): # need ti group by file and by channel
+        current_file = evoked_df.loc[evoked_df['file'] == i]
+        for j in evoked_df['channel'].unique():
+            test = current_file.loc[current_file['channel'] == j]
+            current_geno = test['Genotype'][0] # grab the current genotype
+            #print(current_geno)
+            #print(test)
+            
+            if isinstance(current_geno, str):
+                current_geno = current_geno
+            else:
+                current_geno = 'WT'
+
+            #current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]].apply(lambda x: list(x)[0])
+            #current_df = current_df.apply(lambda x: list(x)[4])
+            current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]]
+            #print(current_df)
+
+            sum_all_freq = {}
+            for series_name, series in current_df.items():
+                current_freq = series
+
+                
+
+
+                #current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]].apply(lambda x: list(x)[0])
+                
+                current_sum = np.sum(current_cell[4] for current_cell in current_freq) # sum the baseline corrected frs for this column
+                current_freq = freq_ls[series_name]
+                sum_all_freq[current_freq] = current_sum
+
+
+
+
+
+
+                
+            CF = max(sum_all_freq, key=sum_all_freq.get)
+                
+
+                # make a threshold dataframe columns being threshold, file, channel, genotype
+            cf_df = cf_df._append({'CF': CF,
+                                    'file': i,
+                                    'channel':j,
+                                    'genotype' : current_geno}, ignore_index=True)
+
+
+                
+    return cf_df
+
+
+
 
 
