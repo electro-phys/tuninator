@@ -1,5 +1,5 @@
 # tuninator
-Automatic analysis pipeline for FRA data collected through my other TDT/single-unit extraction pipeline.
+Automatic analysis pipeline for FRA data collected through my other TDT/single-unit [extraction pipeline](https://github.com/electro-phys/Unit_extractor).
 Contains the automatic tuning analysis for others ease of use, also contains other analyses post processing that were used to make the figures in an associated paper/dataset.
 
 These accessory custom analysis scripts used to analyze the data may be useful for others.
@@ -45,7 +45,7 @@ naviagte to .ipynb file, and open.
 
 ## Tuning pipeline overview
 
-This analysis pipeline takes a csv in a structure of dBxkHz for each unit. This is not a typical data structure, but is very useful for some visualization tools also included in the accesory analyses folder. There is another program LINK WILL GO HERE, that will produce this matrix from either TDT multi-unit data or spike-sorted single-unit data. 
+This analysis pipeline takes a csv in a structure of dBxkHz for each unit. This is not a typical data structure, but is very useful for some visualization tools also included in the accesory analyses folder. There is another [program](https://github.com/electro-phys/Unit_extractor), that will produce this matrix from either TDT multi-unit data or spike-sorted single-unit data. 
 
 ![polley_probken](https://github.com/electro-phys/tuninator/assets/155123673/943e61b3-d86e-4aa9-b348-65d4dcc6fceb)
 
@@ -135,7 +135,12 @@ $P_c$ denotes the Precision of a given curve where $M$ is the number of local ma
 
 
 ### Usage
-Go to the jupyter tutorial notebook for how functions are used 
+Go to the jupyter tutorial notebook for how functions are used. For additional hand_scoring please use the histogram tuning python file. Open the code and ONLY edit the save path at the end of the file. You will also need to edit the list of intensities and frequencies for your own dataset. This analysis requires data to be pickled as it comes from the unit extractor program [LINK HERE](https://github.com/electro-phys/Unit_extractor). There will be errors showing up in the code, but it still runs correctly AS LONG AS YOU CHANGE NOTHING ELSE. A tuning curve with PSTHs will appear, pick the threshold and frequency edges in Hz and dB, you will type into the command window. If at any point you enter data incorrectly simply type anything other than a number and press 'enter' this will restart that tuning curve. Once in the notes section you cannot restart the curve. 
+
+To run program, open anaconda terminal and type:
+```
+python histogram_tuning_analysis_wfreq.py
+```
 
 
 [^1]: Guo et al. 2012,Robustness of Cortical Topography across Fields, Laminae, Anesthetic States, and Neurophysiological Signal Types [paper link](https://www.jneurosci.org/content/32/27/9159).
