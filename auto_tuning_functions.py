@@ -11,6 +11,8 @@ import math
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from scipy.signal import find_peaks
+
 from scipy.signal import savgol_filter
 from scipy.ndimage import median_filter
 from array import *
@@ -763,7 +765,7 @@ def get_tuning_edges(current_khzx1_array,freq_ls,sanity):
 
 
     # use all_evoked_cells for bandwidth calculation for now
-    return thresh_khz_low,thresh_khz_high,all_evoked_cols,peaks
+    return thresh_khz_low,thresh_khz_high,all_evoked_cols,peaks,smoothed_y
 
 
 
@@ -914,8 +916,8 @@ def get_bandwidth(evoked_df,thresh_df,freq_ls,db_ls,cf_df,sanity):
 
 
 
-def area_under_curve(evoked_df,freq_ls):
-    cf_df = pd.DataFrame(columns = ['file','channel','genotype'])
+def area_under_curve(evoked_df,freq_ls,sanity):
+    prec_df = pd.DataFrame(columns = ['file','channel','genotype'])
     for i in evoked_df['file'].unique(): # need ti group by file and by channel
         current_file = evoked_df.loc[evoked_df['file'] == i]
         for j in evoked_df['channel'].unique():
@@ -946,6 +948,30 @@ def area_under_curve(evoked_df,freq_ls):
                 current_sum = np.sum(current_cell[4] for current_cell in current_freq) # sum the baseline corrected frs for this column
                 current_freq = freq_ls[series_name]
                 sum_all_freq[current_freq] = current_sum
+            y__edge_values = np.array(list(sum_all_freq.values()))
+            edges = get_tuning_edges(y__edge_values,freq_ls,sanity)
+            #print(edges)
+
+            y_values = edges[4]
+
+            
+            #sorted_data = dict(sorted(sum_all_freq.keys()))
+            #y_values = np.array(list(sum_all_freq.values()))
+            #x_values = np.array(list(sum_all_freq.keys()))
+
+
+
+
+            x_values = np.arange(len(y_values))
+
+            area = np.trapz(y_values, x_values)
+
+            peaks, _ = find_peaks(y_values)
+
+            #peaks = edges[4]
+            peak_count = len(peaks)
+            
+            precision = (area*peak_count)
 
 
 
@@ -953,18 +979,20 @@ def area_under_curve(evoked_df,freq_ls):
 
 
                 
-            CF = max(sum_all_freq, key=sum_all_freq.get)
+            
                 
 
                 # make a threshold dataframe columns being threshold, file, channel, genotype
-            cf_df = cf_df._append({'CF': CF,
+            prec_df = prec_df._append({'Precision': precision,
+                                   'area':area,
+                                   'peak_number':peaks,
                                     'file': i,
                                     'channel':j,
                                     'genotype' : current_geno}, ignore_index=True)
 
 
                 
-    return cf_df
+    return prec_df
 
 
 
