@@ -743,6 +743,7 @@ def get_tuning_edges(current_khzx1_array,freq_ls,sanity):
     
 
     
+    
 
 
     all_evoked_cols = np.where(smoothed_y > thresh_y)[0]
@@ -913,7 +914,14 @@ def get_bandwidth(evoked_df,thresh_df,freq_ls,db_ls,cf_df,sanity):
 
 
 
-
+def normalize(array,t_min,t_max):
+    norm_arr = []
+    diff = t_max - t_min
+    diff_arr = max(array) - min(array)
+    for item in array:
+        temp = (((item - min(array))*diff)/diff_arr) + t_min
+        norm_arr.append(temp)
+    return norm_arr
 
 
 def area_under_curve(evoked_df,freq_ls,sanity):
@@ -948,12 +956,15 @@ def area_under_curve(evoked_df,freq_ls,sanity):
                 current_sum = np.sum(current_cell[4] for current_cell in current_freq) # sum the baseline corrected frs for this column
                 current_freq = freq_ls[series_name]
                 sum_all_freq[current_freq] = current_sum
-            y__edge_values = np.array(list(sum_all_freq.values()))
-            edges = get_tuning_edges(y__edge_values,freq_ls,sanity)
+            y_edge_values = np.array(list(sum_all_freq.values()))
+            
+            edges = get_tuning_edges(y_edge_values,freq_ls,sanity)
             #print(edges)
 
             y_values = edges[4]
-
+            
+            y_values = normalize(y_values,0,1)
+            
             
             #sorted_data = dict(sorted(sum_all_freq.keys()))
             #y_values = np.array(list(sum_all_freq.values()))
