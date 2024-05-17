@@ -82,7 +82,9 @@ This proceeds exactly opposite to the Threshold calculation. Instead of summing 
 
 ### Automatic bandwidth calculation
 
-Bandwidth is calculated at each intensity above threshold for a given unit, which was calculated in the threshold step. Here, we simply go through each intensity row above threshold and grab the first and last sound-evoked cells, which was caclulated using the [resposne level function](#main_func). These become the bounds for the bandwidth calculation where $a$ is the upper bound frequency (i.e. 40000 Hz) and $b$ is the lower bound frequency (i.e. 20000 Hz)  which is simply $bw = log{_2}{(\frac{a}{b})}$. This is then the bandwidth for that intensity above threshold in octaves.
+Bandwidth is calculated at each intensity above threshold for a given unit, which was calculated in the threshold step. Here, we simply go through each intensity row above threshold and grab the first and last sound-evoked cells, which was caclulated using the [resposne level function](#main_func), where the response crossing the set threshold line is considered to be the edge. There can be mulitple crossing so we take the first and the last to keep the bandwidth estimate conservative.  These become the bounds for the bandwidth calculation where $a$ is the upper bound frequency (i.e. 40000 Hz) and $b$ is the lower bound frequency (i.e. 20000 Hz)  which is simply $bw = log{_2}{(\frac{a}{b})}$. This is then the bandwidth for that intensity above threshold in octaves.
+
+![badnwidth](https://github.com/electro-phys/tuninator/assets/155123673/6df71a76-d542-4f34-b9a8-5f57efa74ed7)
 
 ---
 
@@ -98,18 +100,34 @@ The Q-value is a way to account for frequency specific bandwidth discrepancies. 
 
 Calculating d-prime takes everything we have produced so far and, in a way, summarizes it for each units dBxkHz tuning matrix. In short, it takes the firing properties inside a defiend tone-evoked region and compares to a defined non-evoked region. The farther apart these values are, the 'better' the d-prime. Another words the easier it is to tell these areas apart, or the information encoding is more optimal for higher d-primes. $d' = \frac{&mu;_1 - &mu;_2}{\frac{\sigma_1 - \sigma_2}{2}}$ . 
 
+##### 1st method (Crude)
+
+d-prime was first calculated by taking the previously calculated threshold for the given unit and assuming that every cell below that in intensity is non-evoked. Then for every evoked classified above that, it had to be connected to at least one other evoked cell at a higher intensity. However, our evoked criteria of exceeding $4*\sigma(prestim)$ gives a broad tuning map. So the d-prime calculated here, while sound is much too broad compared to prior results.
+
+##### 2nd method (I/O)
+
+d-prime was also calculated using the same smoothing I/O function described above, but for each frequency. This gave a threshold for each frequency such that anything below the threhsold for each column was deemed non-evoked, while everything above was deemed evoked on a per frequency (column) basis. This yielded more reasonable d-prime results.
+
+##### 3rd method (d-prime per intensity)
+
+d-prime was then calculated on a per intensity basis as this was being accessed for bandwidth calculations anyway. It takes a tuning curve like shown above in the bandwidth function for the given intensity, and takes all columns corresponding to being above the threshold value as evoked and all on the outside as non-evoked. This was consistent with the 2nd method and also produces a d-prime for each intensity, which is interesting. 
 
 
----
+
+#### Precision metric
+
+Another metric that was made is the precision metric. Maybe needs a more descriptive name, but it calculates the area under the best frequency tuning curve (i.e. across all intensities). To account for tuning curves with similar area but differing number peaks, where we defined more peaks as being less precise we use 
+
+$$P_c = M * \int_a^b f(x) dx $$
+
+$P_c$ denotes the Precision of a given curve where $M$ is the number of local maxima after smoothing with a Savitzky-Golay filter, and $f(x)$ being the function of the smoothed curve.
+
 <a name="prec" />
 
-
-### Precision metric
-
-Placeholder
-
-
 ---
+
+
+
 
 
 <a name="output" />
