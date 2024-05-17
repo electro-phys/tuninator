@@ -11,7 +11,7 @@ These accessory custom analysis scripts used to analyze the data may be useful f
     - [Response Properties](#main_func)
     - [Thresholds](#thresholds)
     - [Bandwidth](#bw)
-3. [Output](#output)
+3. [Usage](#output)
 
 ---
 
@@ -104,7 +104,9 @@ Calculating d-prime takes everything we have produced so far and, in a way, summ
 
 
 
-### Output files
-Placeholder text
+### Usage
+Go to the jupyter tutorial notebook for how functions are used 
+
 
 [^1]: Guo et al. 2012,Robustness of Cortical Topography across Fields, Laminae, Anesthetic States, and Neurophysiological Signal Types [paper link](https://www.jneurosci.org/content/32/27/9159).
+Cite the I/O paper here
