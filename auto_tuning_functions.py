@@ -15,7 +15,7 @@ from scipy.signal import savgol_filter
 from scipy.ndimage import median_filter
 from array import *
 
-print(pd.__version__)
+
 
  
                                                                                                         
@@ -280,7 +280,7 @@ def make_dB_df(evoked_df):
             test = current_file.loc[current_file['channel'] == j]
             current_geno = test['Genotype'][0] # grab the current genotype
             #print(current_geno)
-            print(test)
+            
             
             if isinstance(current_geno, str):
                 current_geno = current_geno
@@ -310,7 +310,7 @@ def make_dB_df(evoked_df):
                 lat_mean = latency.mean()
                 # extract peak latency
                 peak_fr = result_df.apply(lambda x: list(x)[2])
-                print(peak_fr)
+                
                 peak_mean = peak_fr.mean()
                 # exctract peak fr
                 resp_dur = result_df.apply(lambda x: list(x)[3]) 
@@ -670,22 +670,22 @@ def savgol_dprime(evoked_df,db_ls,sanity):
                 
                 current_io = [sublist[7] for sublist in current_io]
 
-                print('File:',i,'Unit:',j,'Freq:',col)
+                #print('File:',i,'Unit:',j,'Freq:',col)
                 
-                print('Current IO',current_io)
+                #print('Current IO',current_io)
 
 
                 current_threshold = get_thresh(current_io,db_ls,sanity) # get threshold for current IO
-                print('Current Threshold',current_threshold)
+                #print('Current Threshold',current_threshold)
                 #thresh_ls = range(len(current_io)) # makes a list 0-X for x intensities
-                print(db_ls)
+                #print(db_ls)
                 #thresh_index = np.where(db_ls == current_threshold) # get index value of current threshold
                 thresh_index = db_ls.index(current_threshold)
-                print(thresh_index) 
+                #print(thresh_index) 
                 non_evoked_fr = current_io[:thresh_index] # separate the firing values by evoked and non_evoked
-                print(non_evoked_fr)
+                #print(non_evoked_fr)
                 yes_evoked_fr = current_io[thresh_index+1:]# save into big list of evoked and non_evoked
-                print(yes_evoked_fr)
+                #print(yes_evoked_fr)
 
                 if thresh_index > 0:                  
                     for item in yes_evoked_fr:
@@ -806,7 +806,7 @@ def get_bandwidth(evoked_df,thresh_df,freq_ls,db_ls,cf_df,sanity):
         for j in evoked_df['channel'].unique():
             test = current_file.loc[current_file['channel'] == j]
             current_geno = test['Genotype'][0] # grab the current genotype
-            #print(current_geno)
+            
 
 
             cf_row = cf_df.loc[(cf_df['file'] == i) & (cf_df['channel'] == j)]
@@ -814,7 +814,7 @@ def get_bandwidth(evoked_df,thresh_df,freq_ls,db_ls,cf_df,sanity):
             current_cf = cf_row['CF']
             
             current_cf = current_cf.values[0]
-            print(current_cf)
+            
             
             if isinstance(current_geno, str):
                 current_geno = current_geno
@@ -881,7 +881,7 @@ def get_bandwidth(evoked_df,thresh_df,freq_ls,db_ls,cf_df,sanity):
 
 
                 
-                print('CF: ',current_cf,current_bw)
+                
                 
                 #cf = float(cf)
 
