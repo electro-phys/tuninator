@@ -19,7 +19,7 @@ from array import *
 
 
 
- 
+freq_cols = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18] # need to set this to match your own data future version will be more general
                                                                                                         
 
 
@@ -239,10 +239,10 @@ def plot_evoke_status_crude(evoked_df):
             else:
                 current_geno = 'WT'
             
-            current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]].map(lambda x: x[0]) # get evoked True/False value
+            current_df = test[freq_cols].map(lambda x: x[0]) # get evoked True/False value
             current_df = current_df.astype(int) # converts true false to 1 0
 
-            fr_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]].map(lambda x: x[4]) # get baseline corrected firing rate
+            fr_df = test[freq_cols].map(lambda x: x[4]) # get baseline corrected firing rate
 
             fig1,ax1 = plt.subplots(2,1,figsize=(5,5))
             sns.heatmap(current_df,ax=ax1[0])
@@ -292,7 +292,7 @@ def make_dB_df(evoked_df):
             
             for index, row in test.iterrows():
                 
-                current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]].apply(lambda x: list(x)[index]) # need to get only cells with True
+                current_df = test[freq_cols].apply(lambda x: list(x)[index]) # need to get only cells with True
                 true_columns = current_df.columns[current_df.iloc[0] == True] # check where columns have a True string
                 #print(true_columns)
                 
@@ -474,20 +474,14 @@ def make_freq_df(evoked_df,freq_ls):
             else:
                 current_geno = 'WT'
 
-            #current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]].apply(lambda x: list(x)[0])
-            #current_df = current_df.apply(lambda x: list(x)[4])
-            current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]]
+            current_df = test[freq_cols]
             #print(current_df)
 
             sum_all_freq = {}
             for series_name, series in current_df.items():
                 current_freq = series
 
-                
-
-
-                #current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]].apply(lambda x: list(x)[0])
-                
+                                
                 current_sum = np.sum(current_cell[4] for current_cell in current_freq) # sum the baseline corrected frs for this column
                 current_freq = freq_ls[series_name]
                 sum_all_freq[current_freq] = current_sum
@@ -542,10 +536,7 @@ def get_dprime(evoked_df,cf_df,thresh_df,db_ls,freq_ls):
             else:
                 current_geno = 'WT'
 
-            #current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]]
-            #print(current_df)
-
-            test = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]]
+            test = test[freq_cols]
 
             non_evoked_ls = []
             yes_evoked_ls = []
@@ -554,7 +545,7 @@ def get_dprime(evoked_df,cf_df,thresh_df,db_ls,freq_ls):
                     current_row = row
 
 
-                    current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]].apply(lambda x: list(x)[index])
+                    current_df = test[freq_cols].apply(lambda x: list(x)[index])
 
 
                     # the index will loop from 0 to 9 (which simply corresponds to each intensity)
@@ -666,7 +657,7 @@ def savgol_dprime(evoked_df,db_ls,sanity):
 
 
 
-            current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]] # need to get out the list values
+            current_df = test[freq_cols] # need to get out the list values
             for col in current_df.columns:
                 current_io = current_df[col]
                 
@@ -824,12 +815,12 @@ def get_bandwidth(evoked_df,thresh_df,freq_ls,db_ls,cf_df,sanity):
             else:
                 current_geno = 'WT'
 
-            current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]] # need to get out the list values
+            current_df = test[freq_cols] # need to get out the list values
 
             for index, row in test.iterrows():  
                 non_evoked_ls = [] # need to reset evoked lists because we are getting d-prime for every row
                 yes_evoked_ls = []              
-                current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]].apply(lambda x: list(x)[index])
+                current_df = test[freq_cols].apply(lambda x: list(x)[index])
 
                 
                 current_io = current_df.apply(lambda x: list(x)[7]) 
@@ -939,9 +930,7 @@ def area_under_curve(evoked_df,freq_ls,sanity):
             else:
                 current_geno = 'WT'
 
-            #current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]].apply(lambda x: list(x)[0])
-            #current_df = current_df.apply(lambda x: list(x)[4])
-            current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]]
+            current_df = test[freq_cols]
             #print(current_df)
 
             sum_all_freq = {}
@@ -951,7 +940,6 @@ def area_under_curve(evoked_df,freq_ls,sanity):
                 
 
 
-                #current_df = test[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]].apply(lambda x: list(x)[0])
                 
                 current_sum = np.sum(current_cell[4] for current_cell in current_freq) # sum the baseline corrected frs for this column
                 current_freq = freq_ls[series_name]
