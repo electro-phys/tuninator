@@ -16,13 +16,16 @@ from scipy.signal import find_peaks
 from scipy.signal import savgol_filter
 from scipy.ndimage import median_filter
 from array import *
+import sys
+sys.path.append('/home/dawg/coding_stuff/spike_distance_tune/PySpike') # your path to Pyspike folder
+sys.path.append('/home/dawg/coding_stuff/spike_distance_tune/PySpike/test') # path to Pyspike test of you need to use testing plots
 
+import pyspike as spk
 
-
-freq_cols = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18] # need to set this to match your own data future version will be more general
+#freq_cols = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18] # need to set this to match your own data future version will be more general
                                                                                                         
 
-#freq_cols = [0] # need to set this to match your own data future version will be more general
+freq_cols = [0] # need to set this to match your own data future version will be more general
 
 
                          
@@ -1089,7 +1092,6 @@ def get_gauss_params_fra(evoked_df,freq_ls,db_ls,sanity):
 
 # Define the Gaussian model
 from scipy.optimize import curve_fit
-freq_cols = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18] # need to set this to match your own data future version will be more general
    
 def gaussian(x, a, b, c):
     return a * np.exp(-((x - b) ** 2) / (2 * c ** 2))
@@ -1246,3 +1248,93 @@ def get_gauss_params_fra(gauss_df,sanity):
         print()
 
     return results_df
+
+
+
+def get_distance_for_rlf(current_cell,edges,sanity):
+    # time_range in form (-20,100)
+
+    #spike_train = spk.SpikeTrain(np.array([0.1, 0.3, 0.45, 0.6, 0.9], [0.0, 1.0]))
+    spike_trains = []
+
+    for train in current_cell: # trains 31-60 are for the non_cf_cell
+        #print(train)
+        current_spike_train = spk.SpikeTrain(spike_times=train,edges=edges)
+        spike_trains.append(current_spike_train) # need a list of spike trains
+
+    
+    
+    ri_spike_dist = spk.spike_distance(spike_trains, RI=True)
+
+    spike_distance_mat = spk.spike_distance_matrix(spike_trains)
+    
+    if sanity == 'yes':
+        plt.figure(figsize=(5,5))
+
+        plt.figure()
+        
+        plt.imshow(spike_distance_mat, interpolation='none')
+        plt.title("SPIKE-distance")
+
+        
+
+    return ri_spike_dist,spike_distance_mat
+
+def add_distance_col_and_df_rlf(raw_train_df,db_ls,freq_ls,edges,cf_df,sanity):
+
+    
+    form_spk_df = pd.DataFrame(columns = ['spike_train','spike_distance','spike_synch','file','channel','genotype'])
+    intensity = db_ls
+
+    for i in raw_train_df['file'].unique(): # need ti group by file and by channel
+        current_file = raw_train_df.loc[raw_train_df['file'] == i]
+        for j in current_file['channel'].unique():
+            #print(j)
+            current_unit = current_file.loc[current_file['channel'] == j]
+            #print(current_unit)
+            current_geno = current_unit['Genotype'] # grab the current genotype
+            #print(current_geno)
+
+            current_unit = current_unit[[0]]
+
+            # compare evoked and non-evoked cells
+
+            
+
+            # loop over dB
+            
+            for index, row in current_unit.iterrows():
+                current_int = current_unit.iloc[index]
+                current_db = db_ls[index] # get current intensity]
+
+
+                CF = cf_df.loc[cf_df['file'] == i] # get the CF cell from this data
+                CF = CF.loc[CF['channel'] == j] 
+                CF = CF['CF']
+                CF = CF.iloc[0]
+                cf_ind = freq_ls.index(CF)
+                
+                for series_name, series in current_int.items(): # loop over kHz
+                    current_freq = freq_ls[series_name]  # get Hz freq  
+                    current_cell =   current_int[series_name] # get currrent cell
+                    current_cell = np.array(current_cell)
+
+                    CF_octs = calc_octaves(CF,current_freq)
+
+                    distance_cell = get_distance_for_rlf(current_cell = current_cell,edges=edges,sanity=sanity)
+
+
+                        # make a threshold dataframe columns being threshold, file, channel, genotype
+                    form_spk_df = form_spk_df._append({
+                                                    'spike_train':current_cell,
+                                                    'freq':current_freq,
+                                                    'intensity':current_db,
+                                                    'dist_matrix':distance_cell[1],
+                                                    'ri_distance':distance_cell[0],
+                                                            'file': i,
+                                                            'channel':j,
+                                                            'genotype' : current_geno}, ignore_index=True)
+            
+            
+
+    return form_spk_df
