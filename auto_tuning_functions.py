@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 
 import math
-
+from scipy.optimize import curve_fit
 #plots
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -22,6 +22,7 @@ from array import *
 freq_cols = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18] # need to set this to match your own data future version will be more general
                                                                                                         
 
+#freq_cols = [0] # need to set this to match your own data future version will be more general
 
 
                          
@@ -456,9 +457,6 @@ def add_thresh_col(dB_df,db_ls,sanity):
 
 
 
-
-
-
 def make_freq_df(evoked_df,freq_ls):
     cf_df = pd.DataFrame(columns = ['file','channel','genotype'])
     for i in evoked_df['file'].unique(): # need ti group by file and by channel
@@ -761,6 +759,7 @@ def get_tuning_edges(current_khzx1_array,freq_ls,sanity):
 
 
 
+
 def calc_octaves(low,high):
     #low_khz = freq_ls[low] # convert index to freq in khz
 	#high_khz = freq_ls[high]
@@ -952,13 +951,6 @@ def area_under_curve(evoked_df,freq_ls,sanity):
             y_values = edges[4]
             
             y_values = normalize(y_values,0,1)
-            
-            
-            #sorted_data = dict(sorted(sum_all_freq.keys()))
-            #y_values = np.array(list(sum_all_freq.values()))
-            #x_values = np.array(list(sum_all_freq.keys()))
-
-
 
 
             x_values = np.arange(len(y_values))
@@ -970,16 +962,7 @@ def area_under_curve(evoked_df,freq_ls,sanity):
             #peaks = edges[4]
             peak_count = len(peaks)
             
-            precision = (area*peak_count)
-
-
-
-
-
-
-                
-            
-                
+            precision = (area*peak_count)         
 
                 # make a threshold dataframe columns being threshold, file, channel, genotype
             prec_df = prec_df._append({'Precision': precision,
@@ -995,5 +978,271 @@ def area_under_curve(evoked_df,freq_ls,sanity):
 
 
 
+# Define the Gaussian model
+def gaussian(x, a, b, c):
+    return a * np.exp(-((x - b) ** 2) / (2 * c ** 2))
+
+# Define a function to calculate the slope and threshold at 20% of the range
+def calculate_slope_and_threshold(params, x_data):
+    a, b, c = params
+    # Generate a dense set of x values for more accurate min/max detection
+    x_fit = np.linspace(min(x_data), max(x_data), 1000)
+    y_fit = gaussian(x_fit, *params)
+    
+    y_min = np.min(y_fit)
+    y_max = np.max(y_fit)
+    y_range = y_max - y_min
+    y_threshold = y_min + 0.2 * y_range
+    
+    # Find the corresponding x value (intensity) where y_threshold is reached
+    x_threshold = x_fit[np.argmin(np.abs(y_fit - y_threshold))]
+    
+    # Find the corresponding x value (intensity) where 80% of the range is reached
+    y_asymp = y_min + 0.8 * y_range
+    x_asymp = x_fit[np.argmin(np.abs(y_fit - y_asymp))]
+
+    # Calculate slope based on 20% and 80% values of fitted line
+    rise = y_asymp - y_threshold
+    run = x_asymp - x_threshold
+    gaussian_slope = rise / run
+
+    return gaussian_slope, x_threshold, y_min, y_max
+
+def get_gauss_params_fra(evoked_df,freq_ls,db_ls,sanity):
+    # Example data
+    data = evoked_df
+
+    # Fit the model for each file and genotype
+    files = data['file'].unique()
+    results = []
+
+    for file in files:
+        subset_file = data[data['file'] == file]
+        genotypes = subset_file['genotype'].unique()
+        channels = subset_file['channel'].unique()
+
+        for chan in channels:
+            for genotype in genotypes:
+
+                subset = subset_file[subset_file['genotype'] == genotype]
+                subset = subset_file[subset_file['channel'] == chan]
+
+                column_range_sum = subset.loc[:, freq_ls].sum(axis=1) # sum each column
+
+                y_data = column_range_sum # y_data = sums
+                x_data = freq_ls # x_data = freq_ls i.e. columns summed
 
 
+                x_data = subset['dB'].values
+                y_data = subset['spk_sec_abs'].values
+                
+                # Initial guesses for the parameters
+                initial_guess = [max(y_data), np.mean(x_data), np.std(x_data)]
+                
+                try:
+                    popt, pcov = curve_fit(gaussian, x_data, y_data, p0=initial_guess)
+                    slope, threshold, y_min, y_max = calculate_slope_and_threshold(popt, x_data)
+                    
+                    result = {
+                        'file': file,
+                        'genotype': genotype,
+                        'channel': chan,
+                        'params': popt,
+                        'slope': slope,
+                        'threshold': threshold,
+                        'y_min': y_min,
+                        'y_max': y_max
+                    }
+                    results.append(result)
+                    
+                    # Plotting the fit
+                    if sanity == 'yes':
+                        plt.figure()
+                        x_fit = np.linspace(min(x_data), max(x_data), 100)
+                        y_fit = gaussian(x_fit, *popt)
+                        plt.plot(x_fit, y_fit, label=f'{genotype} fit')
+                        plt.axhline(y=y_min + 0.2 * (y_max - y_min), color='r', linestyle='--', label='20% threshold')
+                        plt.axhline(y=y_min + 0.8 * (y_max - y_min), color='r', linestyle='--', label='80% threshold')
+                        plt.xlabel('Sound Intensity')
+                        plt.xticks(np.arange(0, 85, 5))
+                        plt.ylabel('Firing Rate')
+                        plt.title(f'File: {file}, Genotype: {genotype}')
+                        plt.legend()
+                        plt.show()
+                    
+                except RuntimeError:
+                    print(f"Fit could not be performed for file {file}, genotype {genotype}")
+
+    # Save results to a CSV file
+    results_df = pd.DataFrame(results)
+    results_df.to_csv('fit_results.csv', index=False)
+
+    # Print the results
+    for result in results:
+        print(f"File: {result['file']}, Genotype: {result['genotype']}")
+        print(f"  Parameters: {result['params']}")
+        print(f"  Slope: {result['slope']}")
+        print(f"  Threshold: {result['threshold']}")
+        print(f"  Min Y: {result['y_min']}")
+        print(f"  Max Y: {result['y_max']}")
+        print()
+
+# Define the Gaussian model
+from scipy.optimize import curve_fit
+freq_cols = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18] # need to set this to match your own data future version will be more general
+   
+def gaussian(x, a, b, c):
+    return a * np.exp(-((x - b) ** 2) / (2 * c ** 2))
+
+# Define a function to calculate the slope and threshold at 20% of the range
+def calculate_slope_and_threshold(params, x_data):
+    a, b, c = params
+    # Generate a dense set of x values for more accurate min/max detection
+    x_fit = np.linspace(min(x_data), max(x_data), 1000)
+    y_fit = gaussian(x_fit, *params)
+    
+    y_min = np.min(y_fit)
+    y_max = np.max(y_fit)
+    y_range = y_max - y_min
+    y_threshold = y_min + 0.5 * y_range
+    print('Threshold Value: ',y_threshold)
+    
+    # Find the corresponding x value (intensity) where y_threshold is reached
+    x_threshold = x_fit[np.argmin(np.abs(y_fit - y_threshold))]
+    print(x_threshold)
+    
+    # Find the corresponding x value (intensity) where 80% of the range is reached
+    y_asymp = y_min + 0.8 * y_range
+    x_asymp = x_fit[np.argmin(np.abs(y_fit - y_asymp))]
+
+    # Calculate slope based on 20% and 80% values of fitted line
+    #rise = y_asymp - y_threshold
+    #run = x_asymp - x_threshold
+    #gaussian_slope = rise / run
+
+    #gaussian_derivative = lambda x: -((x - b) / (c ** 2)) * gaussian(x, a, b, c)
+    #gaussian_slope = gaussian_derivative(y_threshold)
+    gaussian_slope = []
+    h = 1e-5
+    slope = np.abs((gaussian(x_threshold + h, a, b, c) - gaussian(x_threshold - h, a, b, c)) / (2 * h))
+    gaussian_slope.append(slope)
+    print('Slope:',gaussian_slope)
+    
+
+    return gaussian_slope, y_threshold, y_min, y_max
+
+def make_gauss_df(evoked_df,freq_ls):
+    gauss_df = pd.DataFrame(columns = ['file','channel','genotype'])
+    for i in evoked_df['file'].unique(): # need ti group by file and by channel
+        current_file = evoked_df.loc[evoked_df['file'] == i]
+        for j in evoked_df['channel'].unique():
+            test = current_file.loc[current_file['channel'] == j]
+            current_geno = test['Genotype'][0] # grab the current genotype
+            
+            if isinstance(current_geno, str):
+                current_geno = current_geno
+            else:
+                current_geno = 'WT'
+
+            current_df = test[freq_cols]
+
+            sum_all_freq = {}
+            for series_name, series in current_df.items():
+                current_freq = series
+
+                                
+                current_sum = np.sum(current_cell[4] for current_cell in current_freq) # sum the baseline corrected frs for this column
+                current_freq = freq_ls[series_name]
+                sum_all_freq[current_freq] = current_sum
+
+                
+
+                # make a threshold dataframe columns being threshold, file, channel, genotype
+                gauss_df = gauss_df._append({'freq': current_freq,
+                                            'sum': current_sum,
+                                            'file': i,
+                                            'channel':j,
+                                            'genotype' : current_geno}, ignore_index=True)
+
+
+                
+    return gauss_df
+
+def get_gauss_params_fra(gauss_df,sanity):
+    # Example data
+    data = gauss_df
+
+    # Fit the model for each file and genotype
+    files = data['file'].unique()
+    results = []
+
+    for file in files:
+        subset_file = data[data['file'] == file]
+        genotypes = subset_file['genotype'].unique()
+        channels = subset_file['channel'].unique()
+
+        for chan in channels:
+            for genotype in genotypes:
+
+                subset = subset_file[subset_file['genotype'] == genotype]
+                subset = subset_file[subset_file['channel'] == chan]
+
+
+                x_data = subset['freq'].values
+                y_data = subset['sum'].values
+
+                print(x_data)
+                print(y_data)
+
+                # Initial guesses for the parameters
+                initial_guess = [max(y_data), np.mean(x_data), np.std(x_data)]
+                
+                try:
+                    popt, pcov = curve_fit(gaussian, x_data, y_data, p0=initial_guess)
+                    slope, threshold, y_min, y_max = calculate_slope_and_threshold(popt, x_data)
+                    
+                    result = {
+                        'file': file,
+                        'Genotype': genotype,
+                        'channel': chan,
+                        'params': popt,
+                        'slope': slope,
+                        'threshold': threshold,
+                        'y_min': y_min,
+                        'y_max': y_max
+                    }
+                    results.append(result)
+                    
+                    # Plotting the fit
+                    if sanity == 'yes':
+                        plt.figure()
+                        x_fit = np.linspace(min(x_data), max(x_data), 100)
+                        y_fit = gaussian(x_fit, *popt)
+                        plt.plot(x_fit, y_fit, label=f'{genotype} fit')
+                        plt.axhline(y=y_min + 0.5 * (y_max - y_min), color='r', linestyle='--', label='50% threshold')
+                        plt.xlabel('Sound Intensity')
+                        #plt.xticks(np.arange(0, 85, 5))
+                        plt.ylabel('Firing Rate')
+                        plt.title(f'File: {file}, Genotype: {genotype}')
+                        plt.legend()
+                        plt.show()
+                    
+                except RuntimeError:
+                    print(f"Fit could not be performed for file {file}, genotype {genotype}")
+
+    # Save results to a CSV file
+    results_df = pd.DataFrame(results)
+    results_df['slope'] = results_df['slope'].apply(lambda x: x[0]) 
+    #results_df.to_csv('fit_results.csv', index=False)
+
+    # Print the results
+    for result in results:
+        print(f"File: {result['file']}, Genotype: {result['Genotype']}")
+        print(f"  Parameters: {result['params']}")
+        print(f"  Slope: {result['slope']}")
+        print(f"  Threshold: {result['threshold']}")
+        print(f"  Min Y: {result['y_min']}")
+        print(f"  Max Y: {result['y_max']}")
+        print()
+
+    return results_df
