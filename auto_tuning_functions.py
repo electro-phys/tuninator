@@ -22,10 +22,10 @@ sys.path.append('/home/dawg/coding_stuff/spike_distance_tune/PySpike/test') # pa
 
 import pyspike as spk
 
-#freq_cols = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18] # need to set this to match your own data future version will be more general
+freq_cols = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18] # need to set this to match your own data future version will be more general
                                                                                                         
 
-freq_cols = [0] # need to set this to match your own data future version will be more general
+#freq_cols = [0] # need to set this to match your own data future version will be more general
 
 
                          
@@ -236,7 +236,6 @@ def plot_evoke_status_crude(evoked_df):
             test = current_file.loc[current_file['channel'] == j]
             current_geno = test['Genotype'][0] # grab the current genotype
             #print(current_geno)
-            print(test)
             
             if isinstance(current_geno, str):
                 current_geno = current_geno
@@ -288,31 +287,22 @@ def make_dB_df(evoked_df):
             #print(current_geno)
             
             
-            if isinstance(current_geno, str):
-                current_geno = current_geno
-            else:
-                current_geno = 'WT'
-            
-            
             for index, row in test.iterrows():
                 
                 current_df = test[freq_cols].apply(lambda x: list(x)[index]) # need to get only cells with True
-                true_columns = current_df.columns[current_df.iloc[0] == True] # check where columns have a True string
-                #print(true_columns)
+                #true_columns = current_df.columns[current_df.iloc[0] == True] ###### This Line used to do something ???
                 
-                result_df = current_df[true_columns] # Select columns where 'True' is present in the first row
-                
+                # result_df = current_df[true_columns] ###### This Line used to do something ???
+                result_df = current_df
                 
                 # need to drop negative first_bin columns too
 
-                true_columns = result_df.columns[result_df.iloc[5] >= 0] # check where columns have a True string
-                result_df = result_df[true_columns]
-                #print(result_df)
+                #true_columns = result_df.columns[result_df.iloc[5] >= 0] ##### This Line used to do something ???
+                #result_df = result_df[true_columns] ##### This Line used to do something ???
                 
             
             
                 latency = result_df.apply(lambda x: list(x)[1]) 
-                #print(latency)
                 lat_mean = latency.mean()
                 # extract peak latency
                 peak_fr = result_df.apply(lambda x: list(x)[2])
@@ -351,9 +341,11 @@ def make_dB_df(evoked_df):
                                                     'genotype' : current_geno}, ignore_index=True)
     return plot_df           
 
+
 def get_thresh(current_dbx1_array,db_ls,sanity):
 
 # Smooth the line
+    print('DB Array input',current_dbx1_array)
     
     smoothed_y = savgol_filter(current_dbx1_array, window_length=5, polyorder=3)
 
@@ -435,15 +427,11 @@ def add_thresh_col(dB_df,db_ls,sanity):
             #print(j)
             current_unit = current_file.loc[current_file['channel'] == j]
             #print(current_unit)
-            current_geno = current_unit['genotype'] # grab the current genotype
+            current_geno = current_unit['genotype'].iloc[0] # grab the current genotype
             #print(current_geno)
-            
-            if isinstance(current_geno, str):
-                current_geno = current_geno
-            else:
-                current_geno = 'WT' # weird error were some geno labels were saved in an array
 
-            curr_fr = current_unit['rel_peak_fr'] 
+            curr_fr = current_unit['abs_peak_fr']  # can change to rel_peak_fr
+            print('Curent fr:',curr_fr)
      
             thresh = get_thresh(curr_fr,intensity,sanity)
 
@@ -1345,6 +1333,8 @@ def get_distance_for_CF(CF_cell, current_cell,edges,sanity):
     #spike_train = spk.SpikeTrain(np.array([0.1, 0.3, 0.45, 0.6, 0.9], [0.0, 1.0]))
     spike_trains = []
 
+    print(CF_cell)
+
     for train in CF_cell: # trains 1-30 are for the CF_cell
         current_spike_train = spk.SpikeTrain(spike_times=train,edges=edges)
         spike_trains.append(current_spike_train) # need a list of spike trains
@@ -1387,7 +1377,8 @@ def add_distance_col_and_df_fra(raw_train_df,db_ls,freq_ls,edges,cf_df,thresh_df
             current_geno = current_unit['Genotype'] # grab the current genotype
             #print(current_geno)
 
-            current_unit = current_unit[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]]
+            #current_unit = current_unit[[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]]
+            current_unit = current_unit[freq_cols]
 
             # compare evoked and non-evoked cells
 
@@ -1437,3 +1428,101 @@ def add_distance_col_and_df_fra(raw_train_df,db_ls,freq_ls,edges,cf_df,thresh_df
             
 
     return form_spk_df
+
+
+
+def get_distance_for_chans_rlf(spike_trains,edges,sanity):
+    # time_range in form (-20,100)
+
+    
+    ri_spike_dist = spk.spike_distance(spike_trains, RI=True)
+
+    spike_distance_mat = spk.spike_distance_matrix(spike_trains)
+    
+    if sanity == 'yes':
+        plt.figure(figsize=(5,5))
+
+        plt.figure()
+        
+        plt.imshow(spike_distance_mat, interpolation='none')
+        plt.title("SPIKE-distance")
+
+        
+
+    return ri_spike_dist,spike_distance_mat
+
+        
+
+
+
+def add_distance_col_and_df_chans_global(raw_train_df,db_ls,freq_ls,edges,cf_df,sanity): # edges usaully just for stim time: (0.0,0.05)
+
+    
+    form_spk_df = pd.DataFrame(columns = ['spike_distance','spike_synch','file','channel','genotype'])
+    intensity = db_ls
+
+
+    db_column = [] # have to add a dB column becuase of the way this code has to be structured.
+    for file in raw_train_df['file'].unique():
+        for channel in raw_train_df['channel'].unique():
+            db_column.extend(db_ls) 
+
+# Add the dB column to the dataframe
+    raw_train_df['dB'] = db_column
+
+    
+    for i in raw_train_df['file'].unique(): # need ti group by file and by channel
+        
+
+        current_file = raw_train_df.loc[raw_train_df['file'] == i]
+        current_geno = current_file['Genotype'][0][0]# grab the current genotype
+        #current_geno = current_geno[0]
+
+        for dB in current_file['dB'].unique():
+            spike_trains = []
+            current_int = current_file.loc[current_file['dB'] == dB]
+            current_db = dB
+
+            for chan in current_file['channel'].unique():
+                current_cell = current_int.loc[current_int['channel'] == chan]
+                current_cell = current_cell[freq_cols]
+                current_cell = np.array(current_cell)
+        
+            
+            for arr in current_cell:
+                print('Subarr',arr)
+                for subarr in arr:
+                    
+                    for train in subarr: 
+                        current_spike_train = spk.SpikeTrain(spike_times=train,edges=edges)
+                        spike_trains.append(current_spike_train) # need a list of spike trains
+
+
+                
+            # now we have the spike train matrix to calculate distance on an array of spike trains that is channels*trials long 
+            
+
+            distance_cell = get_distance_for_chans_rlf(spike_trains = spike_trains,edges=edges,sanity=sanity) # calculate distance for each intensity dataset THIS WILL TAKE A WHILE
+
+
+                    # add data for the current intensity to dataframe
+            form_spk_df = form_spk_df._append({
+                                            'intensity':current_db,
+                                            'dist_matrix':distance_cell[1],
+                                            'ri_distance':distance_cell[0],
+                                            'dB':current_db,
+                                                    'file': i,
+                                                    'genotype' : current_geno}, ignore_index=True)
+            
+
+    return form_spk_df
+
+##### get channels within 3 spaces of the current one for a local channel comparison (could be useful for when not in a single cortical column or core of IC)      
+                # start on channel 2 then take 1,2,3
+                # skip to channel 5, take 3,4,5
+                # skip to channel 6
+
+def get_fano_rlf():
+    fano_df =0
+
+    return fano_df
