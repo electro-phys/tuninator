@@ -1027,7 +1027,21 @@ def calculate_slope_and_threshold(params, x_data):
     threshold = B
     y_min = D
     y_max = A + D
+    x_fit = np.linspace(min(x_data), max(x_data), 1000)
+    y_range = y_max-y_min
+    y_threshold = y_min + 0.15 * y_range
+
+    x_threshold = x_fit[np.argmin(np.abs(y_fit - y_threshold))]
+    
+    # Find the corresponding x value where 80% of the range is reached
+    y_asymp = y_min + 0.8 * y_range
+    
+    # Numerical differentiation to compute the slope
+    h = 1e-5
+    slope = np.abs((gaussian_with_asymptotes(x_threshold + h, A, B, C, D) - gaussian_with_asymptotes(x_threshold - h, A, B, C, D)) / (2 * h))
+    
     return slope, threshold, y_min, y_max, width
+
 def make_gauss_df(evoked_df,freq_ls):
     gauss_df = pd.DataFrame(columns = ['file','channel','genotype'])
     for i in evoked_df['file'].unique(): # need ti group by file and by channel
@@ -1088,8 +1102,7 @@ def get_gauss_params_fra(gauss_df,sanity):
                 x_data = subset['freq'].values
                 y_data = subset['sum'].values
 
-                print(x_data)
-                print(y_data)
+  
 
                 # Initial guesses for the parameters
                 initial_guess = [max(y_data), np.mean(x_data), np.std(x_data)] # for no asymptote
@@ -1109,7 +1122,7 @@ def get_gauss_params_fra(gauss_df,sanity):
                         'threshold': threshold,
                         'y_min': y_min,
                         'y_max': y_max,
-                        'range': (y_max-y_min),
+                        'range': (y_max/y_min),
                         'sigma': width
                     }
                     results.append(result)
@@ -1133,18 +1146,18 @@ def get_gauss_params_fra(gauss_df,sanity):
 
     # Save results to a CSV file
     results_df = pd.DataFrame(results)
-    results_df['slope'] = results_df['slope'].apply(lambda x: x[0]) 
+    #results_df['slope'] = results_df['slope'].apply(lambda x: x[0]) 
     #results_df.to_csv('fit_results.csv', index=False)
 
     # Print the results
-    for result in results:
+    '''for result in results:
         print(f"File: {result['file']}, Genotype: {result['Genotype']}")
         print(f"  Parameters: {result['params']}")
         print(f"  Slope: {result['slope']}")
         print(f"  Threshold: {result['threshold']}")
         print(f"  Min Y: {result['y_min']}")
         print(f"  Max Y: {result['y_max']}")
-        print()
+        print()'''
 
     return results_df
 
