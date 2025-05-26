@@ -1,0 +1,1 @@
+Due to constraints on individual file sizes this folder contains compressed subsections of Auditory Cortex and Inferior Colliculus Spiking Data. These subsets can be downloaded and then vertically concatenated to reproduce the full data set. For testing the code, simply use the provided spike example data in the main folder.
