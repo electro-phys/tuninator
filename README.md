@@ -1,4 +1,5 @@
 # tuninator
+[![DOI](https://zenodo.org/badge/798321965.svg)](https://doi.org/10.5281/zenodo.15519988)
 Automatic analysis pipeline for FRA data collected through my other TDT/single-unit [extraction pipeline](https://github.com/electro-phys/Unit_extractor).
 Contains the automatic tuning analysis for others ease of use, also contains other analyses post processing that were used to make the figures in an associated paper/dataset.
 
